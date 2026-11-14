@@ -109,7 +109,7 @@ python main.py --test-notify   # 發一條測試通知，驗證系統通知鏈�
 | 抓起來 | 按住 > 800ms，可以拖著走 |
 | 右鍵選單 | 右鍵點桌寵或系統匣圖示 |
 | 確認按鈕 | Copilot 完成後出現，點一下確認 |
-| 拖曳移動 | 按住後移動滑鼠 |
+| 拖曳移動 | 按住後移動超過 5px（拖曳不會同時觸發戳／摸頭） |
 
 系統匣 / 右鍵選單：**顯示隱藏**、**滑鼠穿透**、**開機自動啟動**、
 **模擬一次完成通知**（沒有跑 copilot 也能測）、**重新載入素材**、**結束**。
@@ -136,6 +136,7 @@ python main.py --test-notify   # 發一條測試通知，驗證系統通知鏈�
 | `auto_trim` | `false` | `true` 依 alpha 自動裁掉素材四周透明邊（人物視覺大小不變，視窗比較不擋桌面） |
 | `animation_fps` | 見 `animation.py` | 逐狀態覆寫 FPS |
 | `poke_max_ms` / `pat_max_ms` / `grab_ms` | 250 / 800 / 800 | 互動判定門檻 |
+| `drag_threshold_px` | 5 | 按住後移動幾像素才算拖曳（不觸發戳／摸頭） |
 | `confirm_auto_hide_ms` | 10000 | 確認按鈕多久自動收起 |
 | `watcher.poll_interval` | 0.5 | 偵測 copilot 的間隔秒數 |
 | `watcher.copilot_path` | 自動尋找 | copilot 不在 PATH 時直接指定完整路徑 |
@@ -217,6 +218,12 @@ if IS_LINUX:
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 ```
 
+後來進一步收緊成「**Linux 而且真的是 X11 工作階段**」才強制：
+Fedora / Ubuntu 現在預設都是 Wayland，硬塞 `xcb` 會整個跑在 XWayland 下面
+（縮放、多螢幕、貼頂行為都變差），而完全沒裝 xcb 插件的系統會直接啟動失敗。
+判斷放進 `platform_utils.is_x11_session()`（看 `XDG_SESSION_TYPE`，
+沒有就退回 `WAYLAND_DISPLAY` / `DISPLAY`），Wayland 下讓 Qt 自己選 wayland 插件。
+
 ### 2. 通知：`notify-send` 不存在，plyer 在 Windows 11 又不靠譜
 
 `notifier.py` 優先呼叫 `notify-send`（Linux 專用）。Windows 上它不存在，
@@ -236,7 +243,8 @@ ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.zhenxun.deskt
 ### 3. X11 限定旗標與焦點搶奪
 
 `dialog_bubble.py` 用了 `Qt.WindowType.X11BypassWindowManagerHint`——這在 Windows 上無意義。
-現在只在 Linux 加上它，Windows 端改補 `WindowDoesNotAcceptFocus`，
+現在只在 **X11 工作階段**加上它（Wayland 下加這個旗標合成器會直接無視，
+某些環境還會把氣泡當成普通視窗），Windows 端改補 `WindowDoesNotAcceptFocus`，
 讓氣泡出現時**不會把焦點從你正在打的終端機搶走**。
 
 ### 4. 定位：被工作列擋住、被拖到螢幕外就再也抓不回來
@@ -313,7 +321,7 @@ Windows 主控台預設用 OEM 編碼（繁中環境是 Big5/cp950），
   Windows 不再被迫安裝用不上的套件。
 * 新增 `settings.json.example`：Windows 使用者調尺寸、FPS、copilot 路徑不用改程式碼。
 
-### 10. 順帶修掉一個原版就存在的 bug
+### 10. 順帶修掉原版就存在的幾個 bug（Linux 版同樣中招）
 
 `AnimationController` 建立時 `current_state` 已經是 `idle`，而
 
@@ -324,6 +332,25 @@ self._anim.set_state(AnimState.IDLE)   # 狀態相同 → 直接 return
 **第一幀從未送出、計時器也沒有啟動**，結果桌寵是完全透明、看不到的
 （`set_state` 是唯一會啟動計時器的地方）。這個 bug 在 Linux 原版同樣存在。
 修正方式是用 `set_state(AnimState.IDLE, force=True)`。
+
+端對端證據（比較右下角 620×504 區域在啟動前後的差異像素）：
+原版只有 **429 / 312,480 = 0.14%**（啟動前後截圖肉眼完全一樣），
+修好之後是 **18,687 像素（5.98%）**，也就是真的看得到桌寵。
+
+同一輪還找到並修掉這些「跟作業系統無關」的邏輯問題：
+
+| 問題 | 原因 | 修法 |
+|---|---|---|
+| 確認按鈕永遠不出現 | `_show_confirm_btn()` 在全專案**沒有任何呼叫點**（notify 播完直接回 idle） | `_on_anim_finished()` 收到 NOTIFY 時顯示按鈕 |
+| 拖完桌寵會再多戳牠一下 | `mouseMoveEvent` 沒有位移門檻，放開時只看按住時間 | 新增 `DRAG_THRESHOLD_PX = 5`，拖曳過就不要再觸發戳／摸頭 |
+| 抓起來放開後「工作中」狀態遺失 | 放開時無腦 `set_state(IDLE)` | 依 `watcher.is_running` 回 WORKING 或 IDLE |
+| 工作中被戳一下，工作動畫就永久消失 | 一次性動畫播完固定接 IDLE | 播完後 `_reconcile_state()` 與程序實際狀態對齊 |
+| 關閉程式偶發崩潰 | `stop()` 只設旗標，背景執行緒可能對已銷毀的 Qt 物件 emit | `Event.wait()` 取代 `time.sleep()` + `stop()` 裡 `join()` |
+| 每次掃描吃掉數秒 CPU | `psutil.process_iter(["exe","status"])` 對每個程序 readlink `/proc/<pid>/exe` | 先只讀名稱（便宜），名稱命中才解析 exe；Windows 再走 Toolhelp32 快照 |
+| 氣泡在副螢幕被拉回主螢幕 | 只參考 `primaryScreen().geometry()` | 改用**桌寵所在那顆螢幕**的 `availableGeometry()` |
+
+對應的檢查都寫成可重跑的 PASS/FAIL 測試（本機 9 項全過）；
+上游 Linux 版要的修改已另外產生 `*.patch`，逐檔附上原因與行號。
 
 ### 移植前後量測對照
 

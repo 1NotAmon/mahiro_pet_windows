@@ -14,6 +14,8 @@
   "poke_max_ms": 250,
   "pat_max_ms": 800,
   "grab_ms": 800,
+  "_drag_threshold_px": "按住後要移動幾像素才算拖曳；沒超過門檻才判定戳／摸頭（避免拖完顺手戳牠）",
+  "drag_threshold_px": 5,
   "confirm_auto_hide_ms": 10000,
 
   "watcher": {

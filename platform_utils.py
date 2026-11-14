@@ -1,7 +1,7 @@
 """
 platform_utils.py - 跨平台相容層（Windows / Linux / macOS）
 
-原版只在 Linux/X11 跑，平台相關的假設都散在各部门裡。
+原版只在 Linux/X11 跑，平台相關的假設都散在各部門裡。
 這個模組把它們集中起來，其他模組只要問這裡，
 這樣 Linux 的行為不會被破壞，Windows 也能直接用。
 """
@@ -32,11 +32,41 @@ def configure_runtime():
     # Qt 平台插件：只有 Linux 需要強制 xcb。
     # Windows 必須使用 Qt 的 windows 插件，
     # 硬塞 xcb 會直接啟動失敗（could not load platform plugin "xcb"）。
-    if IS_LINUX:
+    # Linux 上也只在 X11 工作階段強制：Fedora / Ubuntu 現在預設是 Wayland，
+    # 硬塞 xcb 會讓桌寵跑在 XWayland 下面（縮放、多螢幕、貼頂行為都變差），
+    # 而且沒裝 xcb 插件的系統會直接啟動失敗。
+    if IS_LINUX and is_x11_session():
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
     if IS_WINDOWS:
         set_app_user_model_id()
+
+
+def is_x11_session() -> bool:
+    """
+    Linux 桌面會話是不是 X11。非 Linux 一律回傳 True（Windows/macOS 沒有這個問題）。
+    """
+    if not IS_LINUX:
+        return True
+    session = os.environ.get("XDG_SESSION_TYPE", "").strip().lower()
+    if session in ("x11", "wayland"):
+        return session == "x11"
+    # 有些環境不寫 XDG_SESSION_TYPE，退回傳統變數判斷
+    if os.environ.get("WAYLAND_DISPLAY"):
+        return False
+    return bool(os.environ.get("DISPLAY"))
+
+
+def qt_platform_name() -> str:
+    """目前的 Qt 平台插件名稱（xcb / wayland / windows / cocoa…）。"""
+    try:
+        from PyQt6.QtGui import QGuiApplication
+        app = QGuiApplication.instance()
+        if app is not None:
+            return app.platformName().lower()
+    except Exception:
+        pass
+    return ""
 
 
 def _fix_console_encoding():
@@ -297,7 +327,7 @@ def available_geometry(point=None):
 
 
 def union_geometry(available: bool = False):
-    """所有螢幕合成的範圍，用來判斷視窗还有沒有「在桌面上」。"""
+    """所有螢幕合成的範圍，用來判斷視窗還有沒有「在桌面上」。"""
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtCore import QRect
     app = QApplication.instance()

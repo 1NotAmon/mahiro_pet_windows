@@ -38,6 +38,8 @@ ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 POKE_MAX_MS = int(config.get("poke_max_ms", 250))
 PAT_MAX_MS  = int(config.get("pat_max_ms", 800))
 GRAB_MS     = int(config.get("grab_ms", 800))
+# 位移門檻（像素）：沒超過就算「按著沒動」，不當成拖曳
+DRAG_THRESHOLD_PX = int(config.get("drag_threshold_px", 5))
 
 CONFIRM_BTN_H = 30
 SCREEN_EDGE_MARGIN = 12
@@ -51,6 +53,8 @@ class PetWindow(QWidget):
         self._press_pos   = QPoint()
         self._drag_offset = QPoint()
         self._is_grabbed  = False
+        self._dragged     = False
+        self._state_before_grab = None
         self._click_through = False
         self._tray = None
         self._tray_icon = QIcon()
@@ -277,13 +281,21 @@ class PetWindow(QWidget):
         self._press_start = time.time() * 1000
         self._press_pos   = event.globalPosition().toPoint()
         self._drag_offset = event.globalPosition().toPoint() - self.pos()
+        self._dragged = False
         self._grab_timer.start(GRAB_MS)
 
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.MouseButton.LeftButton):
             return
-        new_pos = event.globalPosition().toPoint() - self._drag_offset
-        self.move(new_pos)
+        gp = event.globalPosition().toPoint()
+        # 原版沒門檻：按住後只要動 1px 就拖著走，而且放開時按住時間不到
+        # 250ms 會再多觸發一次「點一下」。現在先超過門檻才算真的在拖曳。
+        if not self._dragged:
+            if abs(gp.x() - self._press_pos.x()) < DRAG_THRESHOLD_PX and \
+               abs(gp.y() - self._press_pos.y()) < DRAG_THRESHOLD_PX:
+                return
+            self._dragged = True
+        self.move(gp - self._drag_offset)
         self._update_bubble_pos()
 
     def mouseReleaseEvent(self, event):
@@ -295,8 +307,17 @@ class PetWindow(QWidget):
 
         if self._is_grabbed:
             self._is_grabbed = False
-            self._anim.set_state(AnimState.IDLE)
+            # 放下來要回到「該回的狀態」：copilot 還在跑就繼續 working，
+            # 不是無腦回 idle（原版會把工作中的狀態弄丟）
+            target = AnimState.WORKING if self._copilot_running() else AnimState.IDLE
+            self._anim.set_state(target)
             self._bubble.show_message("放我下來了～", 1500)
+            self._clamp_position()
+            self._update_bubble_pos()
+            return
+
+        if self._dragged:
+            # 純粹拖曳移動視窗，不該再給戳／摸頭的回應
             self._clamp_position()
             self._update_bubble_pos()
             return
@@ -305,6 +326,17 @@ class PetWindow(QWidget):
             self._do_poke()
         elif held_ms < PAT_MAX_MS:
             self._do_pat()
+
+    def _copilot_running(self) -> bool:
+        """copilot 現在是否在跑（拿不到 watcher 就当沒在跑）。"""
+        try:
+            return bool(self._watcher.is_running)
+        except Exception:
+            return False
+
+    def _preferred_idle_state(self) -> str:
+        """「沒事做」時應該播放的狀態：工作中就繼續 working。"""
+        return AnimState.WORKING if self._copilot_running() else AnimState.IDLE
 
     def contextMenuEvent(self, event):
         """右鍵桌寵 = 同一個選單（Windows 使用者習慣）。"""
@@ -333,6 +365,23 @@ class PetWindow(QWidget):
     def _on_anim_finished(self, state: str):
         if state == AnimState.CONFIRM:
             self._hide_confirm_btn()
+        # 一次性動畫（戳／摸頭／通知／確認）播完時，控制器會按 ANIM_CONFIG
+        # 切回 IDLE；但如果 copilot 其實還在跑，就該切回 working，
+        # 否則工作中戳牠一下，工作動畫就永久消失了。
+        if state in (AnimState.POKE, AnimState.PAT,
+                     AnimState.NOTIFY, AnimState.CONFIRM):
+            QTimer.singleShot(0, self._reconcile_state)
+
+    def _reconcile_state(self):
+        """把「目前狀態」跟 copilot 實際工作與否對齊（拖曳中不動它）。"""
+        if self._is_grabbed:
+            return
+        running = self._copilot_running()
+        current = self._anim.state
+        if running and current == AnimState.IDLE:
+            self._anim.set_state(AnimState.WORKING)
+        elif not running and current == AnimState.WORKING:
+            self._anim.set_state(AnimState.IDLE)
 
     # ══════════════════════════════════════════════
     # Copilot 狀態

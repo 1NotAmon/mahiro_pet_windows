@@ -18,7 +18,7 @@ from PyQt6.QtCore import Qt, QTimer, QPoint
 from PyQt6.QtGui import QPainter, QColor, QPainterPath, QFont, QPen
 
 import config
-from platform_utils import IS_LINUX, available_geometry
+from platform_utils import IS_LINUX, available_geometry, is_x11_session
 
 # 各平台可用的中文字型（Qt 會自動往下列表 fallback）
 FONT_FAMILIES = [
@@ -45,8 +45,10 @@ class DialogBubble(QWidget):
                  | Qt.WindowType.FramelessWindowHint
                  | Qt.WindowType.WindowStaysOnTopHint
                  | Qt.WindowType.WindowDoesNotAcceptFocus)
-        if IS_LINUX:
-            # 原版行為：繞過視窗管理員，避免被工作區切換 / 動畫影響
+        if IS_LINUX and is_x11_session():
+            # 原版行為：繞過視窗管理員，避免被工作區切換 / 動畫影響。
+            # 但這旗標只有 X11（xcb）有效，Wayland 工作階段加它沒有意義，
+            # 反而可能讓合成器用奇怪的方式處理這個視窗。
             flags |= Qt.WindowType.X11BypassWindowManagerHint
         super().__init__(parent, flags)
 
