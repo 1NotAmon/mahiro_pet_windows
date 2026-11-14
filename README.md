@@ -145,7 +145,7 @@ python main.py --test-notify   # 發一條測試通知，驗證系統通知鏈�
 | `click_through` | `false` | 滑鼠穿透模式 |
 
 其他：`pet_window.py` 上方有互動閾值常數、`animation.py` 有 `ANIM_CONFIG`（FPS／循環／播完接哪個狀態），
-不改 settings.json 也能直接调。
+不改 settings.json 也能直接調。
 
 * * *
 
@@ -220,10 +220,10 @@ if IS_LINUX:
 ### 2. 通知：`notify-send` 不存在，plyer 在 Windows 11 又不靠譜
 
 `notifier.py` 優先呼叫 `notify-send`（Linux 專用）。Windows 上它不存在，
-而 plyer 的 Windows 實作依赖舊的 `Shell_NotifyIcon` 包裝，在新 Python／Win11 上常直接失敗。
+而 plyer 的 Windows 實作依賴舊的 `Shell_NotifyIcon` 包裝，在新 Python／Win11 上常直接失敗。
 
 做法是改成**用桌寵自己的系統匣發通知**（`QSystemTrayIcon.showMessage()`，
-Windows 10/11 會顯示成原生 Toast，零额外套件），並在建立 `QApplication` 之前註冊
+Windows 10/11 會顯示成原生 Toast，零額外套件），並在建立 `QApplication` 之前註冊
 `AppUserModelID`：
 
 ```python
@@ -231,7 +231,7 @@ ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.zhenxun.deskt
 ```
 
 **沒有這個 AUMID，Windows 的 Toast 通知根本不會彈出來**（或標題顯示成 `python.exe`），
-這點卡了很久。顺序變成：系統匣 → `notify-send`(Linux) → `osascript`(macOS) → plyer → stderr。
+這點卡了很久。順序變成：系統匣 → `notify-send`(Linux) → `osascript`(macOS) → plyer → stderr。
 
 ### 3. X11 限定旗標與焦點搶奪
 
@@ -261,7 +261,7 @@ Windows 工作列高度不固定（還會自動隱藏／靠左右），DPI 縮�
 
 * **Windows 11 內建的 Copilot 造成永久誤判。** 實測機器上有 11 個 `copilotapp.exe`
   常駐程序，另有 `copilot-runtime.exe`。如果沿用「程序名稱含有 `copilot` 就當成在跑」
-  這種直覺規則，桌寵會**永久顯示成「Copilot 工作中」**，动畫永远卡在 working。
+  這種直覺規則，桌寵會**永久顯示成「Copilot 工作中」**，動畫永遠卡在 working。
   → 改為程序名**完整比對** + 執行檔**實路徑比對**，並把內建 Copilot App 列進排除清單。
 * **大小寫。** 本機 PATH 解析出來的其實是 `copilot.EXE`，比對一律走
   `os.path.normcase(os.path.realpath(...))`（同時也能應付 8.3 短檔名與符號連結）。
@@ -271,15 +271,15 @@ Windows 工作列高度不固定（還會自動隱藏／靠左右），DPI 縮�
   所以「用 getattr 判斷平台」根本無效，等於每次都多要了 `status`。
   → Windows 改用 `CreateToolhelp32Snapshot` 拿 `(pid, 名稱)`，名稱沒命中就結束這一輪，
   只有命中才用 psutil 解析 `exe()`。實測 **3210ms → 12.6ms（約 250 倍）**，
-  0.5 秒一次的輪詢只占單核約 2.5%。
-* npm 安装的 copilot 其實是 `copilot.cmd` 叫 `node.exe` 跑 script，
+  0.5 秒一次的輪詢只佔單核約 2.5%。
+* npm 安裝的 copilot 其實是 `copilot.cmd` 叫 `node.exe` 跑 script，
   因此**只有**在偵測目標不是 `.exe` 時才會去檢查 `node.exe` 的 command line，
   避免平白多出昂貴的掃描。
 
 ### 6. 啟動速度：3.5 秒才看到桌寵
 
 90 張 1024×1024 PNG 全部在主執行緒同步解碼，Windows 實測要 3.5 秒。
-改成先同步載入 `idle`（立刻有東西可顯示），其餘狀態丢給背景執行緒：
+改成先同步載入 `idle`（立刻有東西可顯示），其餘狀態丟給背景執行緒：
 
 * 背景執行緒只用 `QImage`（跨執行緒安全），`QPixmap` 一律在**主執行緒**轉換
 * 每個狀態完成就發訊號回報，避免一次卡住整個 UI
@@ -298,14 +298,14 @@ Windows 用 `CreateMutexW`、Linux/macOS 用 `flock` lock file；第二個實例
 ### 8. 主控台編碼：print 中文會 crash
 
 Windows 主控台預設用 OEM 編碼（繁中環境是 Big5/cp950），
-`print` 中文或 emoji 會 `UnicodeEncodeError` 把程式弄挂。
+`print` 中文或 emoji 會 `UnicodeEncodeError` 把程式弄掛。
 啟動時統一 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`，
-`--info` 這类診斷輸出才能安全地印中文。
+`--info` 這類診斷輸出才能安全地印中文。
 
-### 9. 安装與啟動
+### 9. 安裝與啟動
 
 * 新增 `setup.ps1`：自動找 **64 位元** Python 3.10+（PyQt6 沒有 32-bit wheel）、
-  建立 `.venv`、依 `requirements.txt` 安裝、確認 `assets/` 资料夾齊全，然後啟動。
+  建立 `.venv`、依 `requirements.txt` 安裝、確認 `assets/` 資料夾齊全，然後啟動。
   冪等：已經裝過就跳過安裝直接啟動，`-ForceReinstall` 可重建。
 * 新增 `啟動桌寵.bat`（用 `pythonw.exe` 啟動，不出現終端機）
   與 `啟動桌寵_除錯模式.bat`（保留終端機與 log）。
@@ -335,12 +335,12 @@ self._anim.set_state(AnimState.IDLE)   # 狀態相同 → 直接 return
 | 一次程序掃描成本 | 3210 ms | 12.6 ms |
 | 全部動畫就緒 | 3.5 秒（卡住 UI） | 2.67 秒（背景，UI 不卡） |
 | 完成通知 | ✗ 無 `notify-send`，Toast 被系統擋掉 | ✓ 原生 Toast + 提示音 |
-| 定位 | 被工作列擋住 / 可能拖丢 | ✓ availableGeometry + clamp |
+| 定位 | 被工作列擋住 / 可能拖丟 | ✓ availableGeometry + clamp |
 | 重複啟動 | 兩隻桌寵 | ✓ 單實例 |
 
 ### 驗證方式
 
-移植過程每步都用腳本在本機跑過（驗證程式未随 repo 發布，於 `main.py --info`
+移植過程每步都用腳本在本機跑過（驗證程式未隨 repo 發布，於 `main.py --info`
 與 `--test-notify` 保留診斷入口）：
 
 * 互動鏈路 22 項通過：idle／戳／摸頭／抓起／通知／確認按鈕／視窗高度變化／
@@ -349,7 +349,7 @@ self._anim.set_state(AnimState.IDLE)   # 狀態相同 → 直接 return
   `--autostart on/off`（HKCU Run 機碼實際寫入與移除）、單實例提示與結束
 * 程序偵測用長駐程序模擬 copilot 出現／消失，確認 `started` / `stopped`
   各只觸發一次（過程中還抓出自己寫漏 `prev = found` 導致訊號重複發的 bug）
-* 端到端截圖比對：連續兩幀之間 14% 像素變化，確認动畫真的在跑而不是靜態圖
+* 端到端截圖比對：連續兩幀之間 14% 像素變化，確認動畫真的在跑而不是靜態圖
 
 * * *
 

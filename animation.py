@@ -254,7 +254,7 @@ class AnimationController(QObject):
         self.frames[state] = [QPixmap.fromImage(img) for img in images]
 
     def _start_background_load(self):
-        """其餘狀態丢給背景執行緒。"""
+        """其餘狀態丟給背景執行緒。"""
         todo = [s for s in ALL_STATES if s != AnimState.IDLE and self._paths.get(s)]
         # 此時才掃描過檔案，可以確定哪些狀態「還在路上」
         self._loading_states = set(todo)

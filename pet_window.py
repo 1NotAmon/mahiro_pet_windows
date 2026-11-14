@@ -4,7 +4,7 @@ pet_window.py - 桌寵主視窗
 Windows 版改動
 --------------
 1. 視窗尺寸改由素材「實際人物範圍」決定（见 animation.py 的 auto_trim），
-   確認按鈕出現時才把視窗加高，不再永遠多占 36px 的透明區塊。
+   確認按鈕出現時才把視窗加高，不再永遠多佔 36px 的透明區塊。
 2. 定位改用所在螢幕的 availableGeometry（原版座標會壓在工作列下面），
    並在任何移動 / 解析度改變後 clamp，避免桌寵跑到螢幕外再也抓不到。
 3. 加上 WindowDoesNotAcceptFocus：點桌寵不會把焦點從終端機搶走。
