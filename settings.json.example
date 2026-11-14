@@ -1,0 +1,38 @@
+{
+  "_說明": "把這個檔複製成 settings.json 再修改；只寫想改的欄位即可，沒寫到的用預設值。",
+
+  "pet_size": [240, 240],
+  "_pet_size": "顯示尺寸（像素）。螢幕縮放 150% 覺得太大可以調成 [180, 180]",
+
+  "auto_trim": false,
+  "_auto_trim": "true = 依 alpha 自動裁掉素材四周透明邊（人物視覺大小不變，視窗比較不會擋桌面）",
+
+  "animation_fps": { "idle": 8, "working": 10 },
+  "_animation_fps": "只列出的狀態會被覆寫，沒列出的用 animation.py 預設值",
+
+  "bubble_font_px": 13,
+  "poke_max_ms": 250,
+  "pat_max_ms": 800,
+  "grab_ms": 800,
+  "confirm_auto_hide_ms": 10000,
+
+  "watcher": {
+    "_poll_interval": "偵測 copilot 的間隔秒數；null = 自動（Windows / Linux 皆 0.5 秒。Windows 改用 Toolhelp32 快照，一次掃描約 12ms，很輕）",
+    "poll_interval": null,
+    "_copilot_path": "copilot 不在 PATH 時可直接指定，例：C:\\Users\\me\\AppData\\Local\\GitHubCopilotCLI\\copilot.exe",
+    "copilot_path": null,
+    "_extra_process_names": "這些程序名出現時也算「Copilot 工作中」，例：[\"node.exe\"]",
+    "extra_process_names": [],
+    "_match_by_name_only": "true = 只比程序名不比完整路徑（Windows 上較省資源，但可能誤判）",
+    "match_by_name_only": false
+  },
+
+  "notify_sound": true,
+  "_notify_sound": "Windows：Copilot 完成時播放系統提示音",
+
+  "start_hidden": false,
+  "_start_hidden": "true = 啟動時只躲在系統匣，不顯示桌寵",
+
+  "click_through": false,
+  "_click_through": "true = 滑鼠穿透，桌寵完全不影響點桌面（之後可從右鍵選單切換）"
+}

@@ -1,0 +1,30 @@
+# 虛擬環境 / Python 產物
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 使用者本地設定（每個人的螢幕縮放、copilot 路徑不同，不進 repo）
+settings.json
+
+# 使用者本地啟動捷徑（內容是絕對路徑，不適用別人）
+*.lnk
+
+# 執行期產生
+.copilot_output
+logs/
+*.log
+
+# 編輯器 / 系統
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 開發過程的中繼檔與驗證產出（不屬於發行內容）
+.work/
+
+# 除錯時臨時丟進根目錄的腳本
+copilot_watcher_debug.py

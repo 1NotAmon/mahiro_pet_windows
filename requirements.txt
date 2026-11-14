@@ -1,0 +1,16 @@
+# 桌寵相依套件（跨平台）
+# Windows:  python -m pip install -r requirements.txt   （或直接跑 setup.ps1）
+# Linux  :  bash setup.sh
+
+# UI 框架（Windows / Linux / macOS 通用；PyQt6 wheel 是 abi3，Python 3.10+ 皆可）
+PyQt6>=6.6.0
+
+# 監聽 copilot 程序
+psutil>=5.9.0
+
+# 分析素材透明邊、自動裁剪視窗大小（沒裝只是不會裁剪，不影響啟動）
+Pillow>=10.0.0
+
+# 系統通知 fallback：只在非 Windows 安裝
+# Windows 改用系統匣（QSystemTrayIcon）原生 Toast，不需要 plyer
+plyer>=2.1.0 ; sys_platform != "win32"
